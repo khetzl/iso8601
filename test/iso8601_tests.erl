@@ -1,5 +1,4 @@
 -module(iso8601_tests).
--compile(export_all).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -129,6 +128,30 @@ parse_offset_test_() ->
      {"parses YYYYMMDDTHHMMSS.ss+0400",
       ?_assertMatch({{2012,2,3},{17,11,7}}, F("20120203T040506.50-1306"))}].
 
+parse_duration_test_() ->
+     F = fun iso8601:parse_duration/1,
+     [{"parses with pos sign",
+      ?_assertMatch([{sign, "+"}, {years, 6}, {months, 3}, {days, 1},
+                     {hours, 1}, {minutes, 1}, {seconds, 1}],
+                     F("+P6Y3M1DT1H1M1.1S"))},
+     {"parses without sign",
+      ?_assertMatch([{sign, []}, {years, 6}, {months, 3}, {days, 1},
+                     {hours, 1}, {minutes, 1}, {seconds, 1}],
+                     F("P6Y3M1DT1H1M1.1S"))},
+     {"parses only years",
+      ?_assertMatch([{sign, []}, {years, 6}, {months, 0}, {days, 0},
+                     {hours, 0}, {minutes, 0}, {seconds, 0}],
+                     F("P6Y"))},
+     {"parses only minutes",
+      ?_assertMatch([{sign, []}, {years, 0}, {months, 0}, {days, 0},
+                     {hours, 0}, {minutes, 6}, {seconds, 0}],
+                     F("PT6M"))}].
+
+parse_duration_fail_test_() ->
+     F = fun iso8601:parse_duration/1,
+     [{"fails to parses misspelled string",
+      ?_assertError(badarg, F("PIY"))}].
+
 parse_ordinal_test_() ->
     F= fun iso8601:parse/1,
     [{"parses YYYY-DDDTHHMMSS", ?_assertMatch({{2016,2,3}, {4,5,7}}, F("2016-034T040506.50")) },
@@ -159,4 +182,30 @@ parse_ordinal_exact_test_() ->
      {"fails to parse ordinal date with too many days in a leap year", ?_assertError(badarg, F("2016-367T040506.50"))},
      {"parses ordinal date wth 366 days in a leap year", ?_assertMatch({{2016,12,31}, {4,5,6.50}}, F("2016-366T040506.50"))},
      {"fails to parse ordinal date with too many days in a non-leap year", ?_assertError(badarg, F("2015-366T040506.50"))}
+    ].
+
+add_time_test_() ->
+    F= fun iso8601:add_time/4,
+    [{"add one second", ?_assertMatch({{2017,11,28}, {17,7,58}}, F({{2017,11,28}, {17,7,57}}, 0, 0, 1))},
+     {"add one minute", ?_assertMatch({{2017,11,28}, {17,8,57}}, F({{2017,11,28}, {17,7,57}}, 0, 1, 0))},
+     {"add one hour", ?_assertMatch({{2017,11,28}, {18,7,57}}, F({{2017,11,28}, {17,7,57}}, 1, 0, 0))},
+     {"roll over to next day", ?_assertMatch({{2017,11,29}, {00,30,00}}, F({{2017,11,28}, {23,30,00}}, 1, 0, 0))}
+    ].
+
+subtract_time_test_() ->
+    F= fun iso8601:subtract_time/4,
+    [{"add one second", ?_assertMatch({{2017,11,28}, {17,7,56}}, F({{2017,11,28}, {17,7,57}}, 0, 0, 1))},
+     {"add one minute", ?_assertMatch({{2017,11,28}, {17,6,57}}, F({{2017,11,28}, {17,7,57}}, 0, 1, 0))},
+     {"add one hour", ?_assertMatch({{2017,11,28}, {16,7,57}}, F({{2017,11,28}, {17,7,57}}, 1, 0, 0))},
+     {"roll back to previous day", ?_assertMatch({{2017,11,28}, {23,30,00}}, F({{2017,11,29}, {00,30,00}}, 1, 0, 0))}
+    ].
+
+add_months_test_() ->
+    F = fun iso8601:add_months/2,
+    [{"add one month in the middle of the year", ?_assertMatch({{2017,6,24},{1,2,3}}, F({{2017,5,24},{1,2,3}}, 1))},
+     {"add one month at the beginning of the year", ?_assertMatch({{2017,2,24},{1,2,3}}, F({{2017,1,24},{1,2,3}}, 1))},
+     {"add one month almost in the end of the year", ?_assertMatch({{2017,12,24},{1,2,3}}, F({{2017,11,24},{1,2,3}}, 1))},
+     {"add one month in the end of the year", ?_assertMatch({{2018,1,24},{1,2,3}}, F({{2017,12,24},{1,2,3}}, 1))},
+     {"add eight month in the middle of the year", ?_assertMatch({{2018,2,24},{1,2,3}}, F({{2017,6,24},{1,2,3}}, 8))},
+     {"add twelve month in the middle of the year", ?_assertMatch({{2018,5,24},{1,2,3}}, F({{2017,5,24},{1,2,3}}, 12))}
     ].
